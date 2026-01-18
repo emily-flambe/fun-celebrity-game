@@ -5,25 +5,7 @@ import type { GameState, Celebrity, ResultMetrics, DistributionPoint, Response }
 interface StartSessionResponse {
   sessionId: string;
   totalCelebrities: number;
-  currentIndex: number;
-  celebrity: Celebrity;
-}
-
-interface SubmitResponseResponse {
-  revealed: Celebrity;
-  recognized: boolean;
-  nextIndex: number;
-  isComplete: boolean;
-  nextCelebrity: Celebrity | null;
-}
-
-interface GetSessionResponse {
-  sessionId: string;
-  status: 'intro' | 'playing' | 'results';
-  totalCelebrities: number;
-  currentIndex: number;
-  celebrity: Celebrity | null;
-  responses: Response[];
+  celebrities: Celebrity[];
 }
 
 interface ResultsResponse {
@@ -31,6 +13,12 @@ interface ResultsResponse {
   metrics: ResultMetrics;
   celebrities: Celebrity[];
   responses: Response[];
+}
+
+// Local response tracking (before submitting to server)
+interface LocalResponse {
+  celebrityId: number;
+  recognized: boolean;
 }
 
 const initialState: GameState = {
@@ -71,9 +59,13 @@ export default function App() {
     }
   }, []);
 
+  // Local responses state (stored until game complete)
+  const [localResponses, setLocalResponses] = useState<Map<number, boolean>>(new Map());
+
   const startGame = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setLocalResponses(new Map());
 
     try {
       const response = await fetch('/api/session/start', { method: 'POST' });
@@ -83,10 +75,10 @@ export default function App() {
       const newState: GameState = {
         sessionId: data.sessionId,
         status: 'playing',
-        celebrities: [],
+        celebrities: data.celebrities,
         currentIndex: 0,
         responses: [],
-        currentCelebrity: data.celebrity,
+        currentCelebrity: data.celebrities[0],
         lastResponse: null,
       };
 
@@ -94,6 +86,7 @@ export default function App() {
       localStorage.setItem('celebrity-game-session', JSON.stringify({
         sessionId: data.sessionId,
         status: 'playing',
+        celebrities: data.celebrities,
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -102,67 +95,99 @@ export default function App() {
     }
   }, []);
 
-  const submitResponse = useCallback(async (recognized: boolean) => {
+  // Record answer locally (no server call)
+  const submitResponse = useCallback((recognized: boolean) => {
+    if (!state.currentCelebrity) return;
+
+    // Store response locally
+    setLocalResponses(prev => {
+      const updated = new Map(prev);
+      updated.set(state.currentCelebrity!.id, recognized);
+      return updated;
+    });
+
+    // Transition to reveal
+    setState(prev => ({
+      ...prev,
+      status: 'reveal',
+      lastResponse: recognized,
+    }));
+  }, [state.currentCelebrity]);
+
+  // Go to next celebrity
+  const nextCelebrity = useCallback(() => {
+    const nextIndex = state.currentIndex + 1;
+
+    if (nextIndex >= state.celebrities.length) {
+      // Game complete - submit all responses to server
+      completeGame();
+    } else {
+      // Check if we already have an answer for the next celebrity
+      const nextCeleb = state.celebrities[nextIndex];
+      const existingAnswer = localResponses.get(nextCeleb.id);
+
+      setState(prev => ({
+        ...prev,
+        status: existingAnswer !== undefined ? 'reveal' : 'playing',
+        currentIndex: nextIndex,
+        currentCelebrity: nextCeleb,
+        lastResponse: existingAnswer ?? null,
+      }));
+    }
+  }, [state.currentIndex, state.celebrities, localResponses]);
+
+  // Go back to previous celebrity
+  const goBack = useCallback(() => {
+    if (state.currentIndex <= 0) return;
+
+    const prevIndex = state.currentIndex - 1;
+    const prevCeleb = state.celebrities[prevIndex];
+    const existingAnswer = localResponses.get(prevCeleb.id);
+
+    setState(prev => ({
+      ...prev,
+      status: existingAnswer !== undefined ? 'reveal' : 'playing',
+      currentIndex: prevIndex,
+      currentCelebrity: prevCeleb,
+      lastResponse: existingAnswer ?? null,
+    }));
+  }, [state.currentIndex, state.celebrities, localResponses]);
+
+  // Change answer on current celebrity (from reveal back to playing)
+  const changeAnswer = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      status: 'playing',
+      lastResponse: null,
+    }));
+  }, []);
+
+  // Submit all responses and go to results
+  const completeGame = useCallback(async () => {
     if (!state.sessionId) return;
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/session/${state.sessionId}/respond`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recognized }),
-      });
-
-      if (!response.ok) throw new Error('Failed to submit response');
-
-      const data: SubmitResponseResponse = await response.json();
-
-      setState(prev => ({
-        ...prev,
-        status: 'reveal',
-        currentCelebrity: data.revealed,
-        lastResponse: recognized,
-        currentIndex: data.nextIndex,
+      // Build responses array from local state
+      const responses = state.celebrities.map(celeb => ({
+        celebrityId: celeb.id,
+        recognized: localResponses.get(celeb.id) ?? false,
       }));
 
-      // If complete, transition to results after reveal
-      if (data.isComplete) {
-        setTimeout(() => {
-          setState(prev => ({ ...prev, status: 'results' }));
-          fetchResults(state.sessionId!);
-        }, 2000);
-      }
+      await fetch(`/api/session/${state.sessionId}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ responses }),
+      });
+
+      setState(prev => ({ ...prev, status: 'results' }));
+      fetchResults(state.sessionId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
-  }, [state.sessionId]);
-
-  const nextCelebrity = useCallback(async () => {
-    if (!state.sessionId) return;
-
-    try {
-      const response = await fetch(`/api/session/${state.sessionId}`);
-      if (!response.ok) throw new Error('Failed to get session');
-
-      const data: GetSessionResponse = await response.json();
-
-      if (data.status === 'results') {
-        setState(prev => ({ ...prev, status: 'results' }));
-        fetchResults(state.sessionId!);
-      } else {
-        setState(prev => ({
-          ...prev,
-          status: 'playing',
-          currentCelebrity: data.celebrity,
-          currentIndex: data.currentIndex,
-        }));
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    }
-  }, [state.sessionId]);
+  }, [state.sessionId, state.celebrities, localResponses]);
 
   const fetchResults = async (sessionId: string) => {
     try {
@@ -186,21 +211,27 @@ export default function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (state.status === 'playing' && !loading) {
-        if (e.key === 'y' || e.key === 'Y' || e.key === 'ArrowLeft') {
+        if (e.key === 'y' || e.key === 'Y') {
           submitResponse(true);
-        } else if (e.key === 'n' || e.key === 'N' || e.key === 'ArrowRight') {
+        } else if (e.key === 'n' || e.key === 'N') {
           submitResponse(false);
+        } else if (e.key === 'Backspace' || e.key === 'ArrowLeft') {
+          goBack();
         }
       } else if (state.status === 'reveal' && !loading) {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
           nextCelebrity();
+        } else if (e.key === 'Backspace' || e.key === 'ArrowLeft') {
+          goBack();
+        } else if (e.key === 'c' || e.key === 'C') {
+          changeAnswer();
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state.status, loading, submitResponse, nextCelebrity]);
+  }, [state.status, loading, submitResponse, nextCelebrity, goBack, changeAnswer]);
 
   if (error) {
     return (
@@ -254,8 +285,9 @@ export default function App() {
 
   // Playing Screen
   if (state.status === 'playing' && state.currentCelebrity) {
-    const totalCelebrities = 40;
+    const totalCelebrities = state.celebrities.length;
     const progress = (state.currentIndex / totalCelebrities) * 100;
+    const canGoBack = state.currentIndex > 0;
 
     return (
       <div className="h-screen flex flex-col items-center p-4 pt-4 overflow-hidden">
@@ -307,9 +339,17 @@ export default function App() {
             </button>
           </div>
 
-          <p className="text-slate-500 text-xs text-center mt-2 flex-shrink-0">
-            Keyboard: Y / N
-          </p>
+          {/* Back button */}
+          {canGoBack && (
+            <div className="mt-2 flex-shrink-0">
+              <button
+                onClick={goBack}
+                className="text-slate-400 hover:text-slate-200 text-sm"
+              >
+                ← Back
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -317,9 +357,10 @@ export default function App() {
 
   // Reveal Screen
   if (state.status === 'reveal' && state.currentCelebrity) {
-    const totalCelebrities = 40;
-    const progress = (state.currentIndex / totalCelebrities) * 100;
-    const isLastOne = state.currentIndex >= totalCelebrities;
+    const totalCelebrities = state.celebrities.length;
+    const progress = ((state.currentIndex + 1) / totalCelebrities) * 100;
+    const isLastOne = state.currentIndex >= totalCelebrities - 1;
+    const canGoBack = state.currentIndex > 0;
 
     return (
       <div className="h-screen flex flex-col items-center p-4 pt-4 overflow-hidden">
@@ -328,7 +369,7 @@ export default function App() {
           <div className="mb-3 flex-shrink-0">
             <div className="flex justify-between text-sm text-slate-400 mb-1">
               <span>Progress</span>
-              <span>{Math.min(state.currentIndex, totalCelebrities)} / {totalCelebrities}</span>
+              <span>{state.currentIndex + 1} / {totalCelebrities}</span>
             </div>
             <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
               <div
@@ -360,26 +401,37 @@ export default function App() {
             )}
           </div>
 
-          {/* User's answer */}
-          <div className={`text-center py-2 px-3 rounded-lg mb-3 flex-shrink-0 text-sm ${
-            state.lastResponse ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'
-          }`}>
+          {/* User's answer with change option */}
+          <button
+            onClick={changeAnswer}
+            className={`text-center py-2 px-3 rounded-lg mb-3 flex-shrink-0 text-sm transition-colors ${
+              state.lastResponse
+                ? 'bg-green-900/50 text-green-300 hover:bg-green-900/70'
+                : 'bg-red-900/50 text-red-300 hover:bg-red-900/70'
+            }`}
+          >
             {state.lastResponse ? '✓ Recognized' : '✗ Didn\'t recognize'}
-          </div>
+            <span className="text-xs opacity-60 ml-2">(click to change)</span>
+          </button>
 
-          {/* Next button */}
-          {!isLastOne ? (
+          {/* Navigation buttons */}
+          <div className="flex gap-2 flex-shrink-0">
+            {canGoBack && (
+              <button
+                onClick={goBack}
+                className="py-3 px-4 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition-colors"
+              >
+                ←
+              </button>
+            )}
             <button
-              onClick={nextCelebrity}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold text-lg transition-colors flex-shrink-0"
+              onClick={isLastOne ? completeGame : nextCelebrity}
+              disabled={loading}
+              className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 rounded-xl font-semibold text-lg transition-colors"
             >
-              Next
+              {loading ? 'Submitting...' : isLastOne ? 'See Results' : 'Next →'}
             </button>
-          ) : (
-            <div className="text-center text-slate-400 flex-shrink-0">
-              Loading results...
-            </div>
-          )}
+          </div>
         </div>
       </div>
     );
@@ -515,7 +567,12 @@ export default function App() {
             </button>
             <button
               onClick={() => {
-                const text = `My cultural center of gravity is ${results.metrics.centerOfGravity}! I'm a ${results.metrics.peakDecade} person at heart. Take the quiz: ${window.location.origin}`;
+                const tasteLabel = results.metrics.nostalgiaIndex > 1.2
+                  ? 'classic film buff'
+                  : results.metrics.nostalgiaIndex < 0.8
+                    ? 'pop culture native'
+                    : 'well-rounded cinephile';
+                const text = `🎬 I'm a ${results.metrics.peakDecade} ${tasteLabel}!\n\nMy cultural center of gravity: ${results.metrics.centerOfGravity}\nRecognized ${results.metrics.overallRate}% of celebrities\n\nWhat era are you from? ${window.location.origin}`;
                 navigator.clipboard.writeText(text);
                 alert('Copied to clipboard!');
               }}

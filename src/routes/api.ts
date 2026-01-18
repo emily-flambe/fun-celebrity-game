@@ -46,8 +46,7 @@ api.post('/session/start', async (c) => {
     return c.json({
       sessionId,
       totalCelebrities: selected.length,
-      currentIndex: 0,
-      celebrity: selected[0],
+      celebrities: selected,
     });
   } catch (error) {
     console.error('Session start error:', error);
@@ -137,6 +136,44 @@ api.post('/session/:id/respond', async (c) => {
     isComplete,
     nextCelebrity: !isComplete ? celebrities[nextIndex] : null,
   });
+});
+
+// Submit all responses at once (for back/forward navigation support)
+api.post('/session/:id/complete', async (c) => {
+  const sessionId = c.req.param('id');
+  const body = await c.req.json() as {
+    responses: Array<{ celebrityId: number; recognized: boolean }>;
+  };
+
+  const result = await c.env.DB.prepare(
+    'SELECT * FROM sessions WHERE id = ?'
+  ).bind(sessionId).first();
+
+  if (!result) {
+    return c.json({ error: 'Session not found' }, 404);
+  }
+
+  const celebrities = JSON.parse(result.celebrities as string) as Celebrity[];
+
+  // Build full response objects with timestamps
+  const responses = body.responses.map(r => ({
+    celebrityId: r.celebrityId,
+    recognized: r.recognized,
+    timestamp: new Date().toISOString(),
+  }));
+
+  // Update session with all responses
+  await c.env.DB.prepare(
+    'UPDATE sessions SET current_index = ?, responses = ?, status = ?, completed_at = ? WHERE id = ?'
+  ).bind(
+    celebrities.length,
+    JSON.stringify(responses),
+    'results',
+    new Date().toISOString(),
+    sessionId
+  ).run();
+
+  return c.json({ success: true });
 });
 
 // Get results

@@ -70,25 +70,27 @@ function estimateRelevanceWindow(knownFor: TMDBKnownFor[]): { start: number; end
 }
 
 // Pick random pages from a range to get variety across sessions
+// Heavily weighted toward popular celebrities to avoid obscure ones
 function pickRandomPages(count: number, maxPage: number): number[] {
   const pages = new Set<number>();
-  // Always include page 1 for most popular celebrities
+  // Always include pages 1-3 for most popular celebrities
   pages.add(1);
+  pages.add(2);
+  pages.add(3);
 
   while (pages.size < count) {
-    // Weighted toward earlier pages (more popular celebrities)
-    // but still allowing discovery of less popular ones
+    // Heavily weighted toward earlier pages (more recognizable celebrities)
     const random = Math.random();
     let page: number;
-    if (random < 0.4) {
-      // 40% chance: pages 1-10 (very popular)
-      page = Math.floor(Math.random() * 10) + 1;
-    } else if (random < 0.7) {
-      // 30% chance: pages 11-50 (moderately popular)
-      page = Math.floor(Math.random() * 40) + 11;
+    if (random < 0.6) {
+      // 60% chance: pages 1-15 (very popular, most recognizable)
+      page = Math.floor(Math.random() * 15) + 1;
+    } else if (random < 0.9) {
+      // 30% chance: pages 16-40 (moderately popular)
+      page = Math.floor(Math.random() * 25) + 16;
     } else {
-      // 30% chance: pages 51-200 (less known but still recognizable)
-      page = Math.floor(Math.random() * 150) + 51;
+      // 10% chance: pages 41-80 (less known but adds variety)
+      page = Math.floor(Math.random() * 40) + 41;
     }
     pages.add(Math.min(page, maxPage));
   }
