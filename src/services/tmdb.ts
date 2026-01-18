@@ -69,25 +69,54 @@ function estimateRelevanceWindow(knownFor: TMDBKnownFor[]): { start: number; end
   return { start, end };
 }
 
-export async function fetchPopularPeople(env: Env, pages: number = 3): Promise<TMDBPerson[]> {
+// Pick random pages from a range to get variety across sessions
+function pickRandomPages(count: number, maxPage: number): number[] {
+  const pages = new Set<number>();
+  // Always include page 1 for most popular celebrities
+  pages.add(1);
+
+  while (pages.size < count) {
+    // Weighted toward earlier pages (more popular celebrities)
+    // but still allowing discovery of less popular ones
+    const random = Math.random();
+    let page: number;
+    if (random < 0.4) {
+      // 40% chance: pages 1-10 (very popular)
+      page = Math.floor(Math.random() * 10) + 1;
+    } else if (random < 0.7) {
+      // 30% chance: pages 11-50 (moderately popular)
+      page = Math.floor(Math.random() * 40) + 11;
+    } else {
+      // 30% chance: pages 51-200 (less known but still recognizable)
+      page = Math.floor(Math.random() * 150) + 51;
+    }
+    pages.add(Math.min(page, maxPage));
+  }
+
+  return Array.from(pages);
+}
+
+export async function fetchPopularPeople(env: Env, pageCount: number = 10): Promise<TMDBPerson[]> {
   const people: TMDBPerson[] = [];
 
+  // Pick random pages to fetch for variety between sessions
+  const pagesToFetch = pickRandomPages(pageCount, 200);
+
   // Fetch pages in parallel for speed
-  const pagePromises = [];
-  for (let page = 1; page <= pages; page++) {
-    pagePromises.push(
-      fetch(`https://api.themoviedb.org/3/person/popular?page=${page}`, {
-        headers: {
-          'Authorization': `Bearer ${env.TMDB_API_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-      }).then(res => res.json() as Promise<{ results: TMDBPerson[] }>)
-    );
-  }
+  const pagePromises = pagesToFetch.map(page =>
+    fetch(`https://api.themoviedb.org/3/person/popular?page=${page}`, {
+      headers: {
+        'Authorization': `Bearer ${env.TMDB_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+    }).then(res => res.json() as Promise<{ results: TMDBPerson[] }>)
+  );
 
   const results = await Promise.all(pagePromises);
   for (const data of results) {
-    people.push(...data.results);
+    if (data.results) {
+      people.push(...data.results);
+    }
   }
 
   return people.filter(p => p.profile_path);

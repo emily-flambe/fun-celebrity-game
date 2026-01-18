@@ -12,8 +12,8 @@ api.post('/session/start', async (c) => {
   const env = c.env;
 
   try {
-    // Fetch popular people from TMDB (3 pages = 60 people, fetched in parallel)
-    const people = await fetchPopularPeople(env, 3);
+    // Fetch popular people from TMDB (10 random pages from top 200 = ~200 people pool)
+    const people = await fetchPopularPeople(env, 10);
 
     // Build celebrity data from known_for (no extra API calls needed)
     const celebrities: Celebrity[] = [];
