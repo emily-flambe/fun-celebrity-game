@@ -8,6 +8,8 @@
     "build:frontend": "vite build",
     "deploy": "npm run build:frontend && wrangler deploy",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:init": "wrangler d1 execute celebrity-game-db --local --file=./src/db/schema.sql",
     "db:init:remote": "wrangler d1 execute celebrity-game-db --remote --file=./src/db/schema.sql"
   },
@@ -20,12 +22,16 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250109.0",
     "@tailwindcss/vite": "^4.0.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.0",
+    "jsdom": "^27.4.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0",
     "vite": "^6.0.0",
+    "vitest": "^4.0.17",
     "wrangler": "^3.105.0"
   }
 }

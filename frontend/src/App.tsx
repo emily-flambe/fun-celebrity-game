@@ -407,19 +407,19 @@ export default function App() {
           {/* Era Chart */}
           <div className="bg-slate-800 rounded-xl p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4 text-center">Recognition Rate by Decade</h2>
-            <div className="flex items-end justify-between h-40 gap-2">
+            <div className="flex items-end justify-between gap-2" style={{ height: '160px' }}>
               {decades.map((decade, i) => {
-                const height = (decadeAverages[i] / maxRate) * 100;
+                const heightPercent = Math.max((decadeAverages[i] / maxRate) * 100, 4);
                 const isPeak = decade === results.metrics.peakDecade;
                 return (
-                  <div key={decade} className="flex-1 flex flex-col items-center">
+                  <div key={decade} className="flex-1 flex flex-col items-center justify-end h-full">
                     <div
                       className={`w-full rounded-t transition-all duration-500 ${
                         isPeak ? 'bg-yellow-500' : 'bg-blue-500'
                       }`}
-                      style={{ height: `${Math.max(height, 4)}%` }}
+                      style={{ height: `${heightPercent}%`, minHeight: '6px' }}
                     />
-                    <span className="text-xs text-slate-400 mt-2">{decade.slice(0, 4)}</span>
+                    <span className="text-xs text-slate-400 mt-2 flex-shrink-0">{decade.slice(0, 4)}</span>
                   </div>
                 );
               })}
