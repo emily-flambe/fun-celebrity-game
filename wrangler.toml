@@ -1,0 +1,21 @@
+name = "fun-celebrity-game"
+main = "src/index.ts"
+compatibility_date = "2025-01-09"
+
+[build]
+command = "npm run build:frontend"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "celebrity-game-db"
+database_id = "0bdf5de9-7ef3-4b2e-8562-98556eae2ca7"
+
+[[routes]]
+pattern = "funcelebritygame.emilycogsdill.com"
+custom_domain = true

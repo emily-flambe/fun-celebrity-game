@@ -1,0 +1,31 @@
+{
+  "name": "fun-celebrity-game",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm run build:frontend && wrangler dev",
+    "build:frontend": "vite build",
+    "deploy": "npm run build:frontend && wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "db:init": "wrangler d1 execute celebrity-game-db --local --file=./src/db/schema.sql",
+    "db:init:remote": "wrangler d1 execute celebrity-game-db --remote --file=./src/db/schema.sql"
+  },
+  "dependencies": {
+    "hono": "^4.6.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0",
+    "wrangler": "^3.105.0"
+  }
+}
