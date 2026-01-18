@@ -53,6 +53,7 @@ export default function App() {
     celebrities: Celebrity[];
     responses: Response[];
   } | null>(null);
+  const [showMethodology, setShowMethodology] = useState(false);
 
   // Check for existing session in localStorage
   useEffect(() => {
@@ -257,15 +258,15 @@ export default function App() {
     const progress = (state.currentIndex / totalCelebrities) * 100;
 
     return (
-      <div className="min-h-screen flex flex-col items-center p-4 pt-8">
-        <div className="max-w-md w-full">
+      <div className="h-screen flex flex-col items-center p-4 pt-4 overflow-hidden">
+        <div className="max-w-md w-full flex flex-col h-full">
           {/* Progress bar */}
-          <div className="mb-6">
-            <div className="flex justify-between text-sm text-slate-400 mb-2">
+          <div className="mb-3 flex-shrink-0">
+            <div className="flex justify-between text-sm text-slate-400 mb-1">
               <span>Progress</span>
               <span>{state.currentIndex + 1} / {totalCelebrities}</span>
             </div>
-            <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
               <div
                 className="h-full bg-blue-500 transition-all duration-300"
                 style={{ width: `${progress}%` }}
@@ -273,41 +274,41 @@ export default function App() {
             </div>
           </div>
 
-          {/* Celebrity image */}
-          <div className="aspect-square w-full bg-slate-800 rounded-2xl overflow-hidden mb-6">
-            <img
-              src={state.currentCelebrity.image_url}
-              alt="Celebrity"
-              className="w-full h-full object-cover"
-              loading="eager"
-            />
+          {/* Celebrity image - flex-1 to fill available space with max constraint */}
+          <div className="flex-1 min-h-0 flex items-center justify-center mb-3">
+            <div className="w-full max-h-full aspect-[3/4] bg-slate-800 rounded-xl overflow-hidden">
+              <img
+                src={state.currentCelebrity.image_url}
+                alt="Celebrity"
+                className="w-full h-full object-cover"
+                loading="eager"
+              />
+            </div>
           </div>
 
           {/* Question */}
-          <p className="text-xl text-center mb-6">Do you recognize this person?</p>
+          <p className="text-lg text-center mb-3 flex-shrink-0">Do you recognize this person?</p>
 
           {/* Buttons */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 flex-shrink-0">
             <button
               onClick={() => submitResponse(true)}
               disabled={loading}
-              className="py-4 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 rounded-xl font-semibold text-lg transition-colors"
+              className="py-3 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 rounded-xl font-semibold text-lg transition-colors"
             >
               Yes
-              <span className="block text-sm font-normal opacity-75">I've seen them</span>
             </button>
             <button
               onClick={() => submitResponse(false)}
               disabled={loading}
-              className="py-4 bg-red-600 hover:bg-red-700 disabled:bg-slate-600 rounded-xl font-semibold text-lg transition-colors"
+              className="py-3 bg-red-600 hover:bg-red-700 disabled:bg-slate-600 rounded-xl font-semibold text-lg transition-colors"
             >
               No
-              <span className="block text-sm font-normal opacity-75">No idea</span>
             </button>
           </div>
 
-          <p className="text-slate-500 text-sm text-center mt-4">
-            Keyboard: Y/N or Arrow keys
+          <p className="text-slate-500 text-xs text-center mt-2 flex-shrink-0">
+            Keyboard: Y / N
           </p>
         </div>
       </div>
@@ -321,15 +322,15 @@ export default function App() {
     const isLastOne = state.currentIndex >= totalCelebrities;
 
     return (
-      <div className="min-h-screen flex flex-col items-center p-4 pt-8">
-        <div className="max-w-md w-full">
+      <div className="h-screen flex flex-col items-center p-4 pt-4 overflow-hidden">
+        <div className="max-w-md w-full flex flex-col h-full">
           {/* Progress bar */}
-          <div className="mb-6">
-            <div className="flex justify-between text-sm text-slate-400 mb-2">
+          <div className="mb-3 flex-shrink-0">
+            <div className="flex justify-between text-sm text-slate-400 mb-1">
               <span>Progress</span>
               <span>{Math.min(state.currentIndex, totalCelebrities)} / {totalCelebrities}</span>
             </div>
-            <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
               <div
                 className="h-full bg-blue-500 transition-all duration-300"
                 style={{ width: `${progress}%` }}
@@ -337,43 +338,45 @@ export default function App() {
             </div>
           </div>
 
-          {/* Celebrity image */}
-          <div className="aspect-square w-full bg-slate-800 rounded-2xl overflow-hidden mb-4">
-            <img
-              src={state.currentCelebrity.image_url}
-              alt={state.currentCelebrity.name}
-              className="w-full h-full object-cover"
-            />
+          {/* Celebrity image - smaller on reveal to make room for info */}
+          <div className="flex-1 min-h-0 flex items-center justify-center mb-2">
+            <div className="h-full max-w-[70%] aspect-[3/4] bg-slate-800 rounded-xl overflow-hidden">
+              <img
+                src={state.currentCelebrity.image_url}
+                alt={state.currentCelebrity.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
           </div>
 
           {/* Celebrity info */}
-          <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold mb-1">{state.currentCelebrity.name}</h2>
-            <p className="text-slate-400 mb-3">{state.currentCelebrity.occupation}</p>
+          <div className="text-center mb-2 flex-shrink-0">
+            <h2 className="text-xl font-bold">{state.currentCelebrity.name}</h2>
+            <p className="text-slate-400 text-sm">{state.currentCelebrity.occupation}</p>
             {state.currentCelebrity.top_works.length > 0 && (
-              <p className="text-slate-300">
+              <p className="text-slate-300 text-sm mt-1">
                 Known for: {state.currentCelebrity.top_works.join(', ')}
               </p>
             )}
           </div>
 
           {/* User's answer */}
-          <div className={`text-center p-3 rounded-lg mb-6 ${
+          <div className={`text-center py-2 px-3 rounded-lg mb-3 flex-shrink-0 text-sm ${
             state.lastResponse ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'
           }`}>
-            Your answer: {state.lastResponse ? 'Recognized' : 'Didn\'t recognize'}
+            {state.lastResponse ? '✓ Recognized' : '✗ Didn\'t recognize'}
           </div>
 
           {/* Next button */}
           {!isLastOne ? (
             <button
               onClick={nextCelebrity}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold text-lg transition-colors"
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold text-lg transition-colors flex-shrink-0"
             >
               Next
             </button>
           ) : (
-            <div className="text-center text-slate-400">
+            <div className="text-center text-slate-400 flex-shrink-0">
               Loading results...
             </div>
           )}
@@ -459,6 +462,47 @@ export default function App() {
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* Methodology (expandable) */}
+          <div className="bg-slate-800 rounded-xl mb-6 overflow-hidden">
+            <button
+              onClick={() => setShowMethodology(!showMethodology)}
+              className="w-full p-4 flex justify-between items-center text-left hover:bg-slate-700/50 transition-colors"
+            >
+              <span className="font-medium text-slate-300">How is this calculated?</span>
+              <span className={`text-slate-400 transition-transform ${showMethodology ? 'rotate-180' : ''}`}>
+                ▼
+              </span>
+            </button>
+            {showMethodology && (
+              <div className="px-4 pb-4 text-sm text-slate-400 space-y-3">
+                <p>
+                  <strong className="text-slate-300">Celebrity Selection:</strong> We pull 40 popular celebrities
+                  from TMDB's database, each with a "relevance window" based on when their most famous
+                  works were released.
+                </p>
+                <p>
+                  <strong className="text-slate-300">Era Distribution:</strong> For each year from 1950 to present,
+                  we count how many celebrities with relevance in that year you recognized. The chart shows
+                  this recognition rate averaged by decade.
+                </p>
+                <p>
+                  <strong className="text-slate-300">Center of Gravity:</strong> A weighted average of all years,
+                  where years with higher recognition rates pull the center toward them. It represents
+                  your "cultural midpoint."
+                </p>
+                <p>
+                  <strong className="text-slate-300">Knowledge Breadth:</strong> The span of years where your
+                  recognition rate is at least 50% of your peak rate.
+                </p>
+                <p>
+                  <strong className="text-slate-300">Nostalgia Index:</strong> Ratio of your pre-2000 recognition
+                  rate to post-2000. Above 1.0 means you recognize more classic celebrities; below 1.0
+                  means you're more tuned into modern culture.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Actions */}
